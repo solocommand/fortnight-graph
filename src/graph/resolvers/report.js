@@ -12,6 +12,13 @@ module.exports = {
       const { hash } = input;
       return ReportingService.campaignSummary(hash);
     },
+    /**
+     *
+     */
+    reportStorySummary: async (root, { input }) => {
+      const { id } = input;
+      return ReportingService.storySummary(id);
+    },
 
     /**
      *

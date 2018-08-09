@@ -1,7 +1,37 @@
 const moment = require('moment');
 const Campaign = require('../models/campaign');
+const Story = require('../models/story');
 const Analytics = require('../models/analytics/event');
 const { ObjectId } = require('mongoose').Types;
+const { google, auth } = require('../connections/google');
+
+const retrieveGAData = async (start, end, metrics = []) => {
+  const api = google.analyticsreporting({
+    version: 'v4',
+    auth: await auth(['https://www.googleapis.com/auth/analytics']),
+  });
+
+  const dateRanges = [
+    {
+      startDate: moment(start).format('YYYY-MM-DD'),
+      endDate: moment(end).format('YYYY-MM-DD'),
+    },
+  ];
+
+  const res = await api.reports.batchGet({
+    requestBody: {
+      reportRequests: [
+        {
+          viewId: '178806143', // 31090033 // What to do with this? Set to FH.com for now, should be internal NX structure? Also needs to target against the story by url/other.
+          dateRanges,
+          metrics,
+        },
+      ],
+    },
+  });
+  return res.data;
+};
+
 
 const createDateRange = (start, end) => {
   const dates = [];
@@ -32,9 +62,25 @@ const fillDayData = (date, days) => {
     ctr,
   };
 };
+
 const getCtrProject = () => ({
   $cond: [{ $eq: ['$views', 0] }, 0.00, { $divide: [{ $floor: { $multiply: [10000, { $divide: ['$clicks', '$views'] }] } }, 100] }],
 });
+
+const retrieveStorySummaryStats = async (start, end) => {
+  const metrics = [
+    { expression: 'ga:sessions' },
+    { expression: 'ga:hits' },
+    { expression: 'ga:avgTimeOnPage' },
+  ];
+  const res = await retrieveGAData(start, end, metrics);
+  const dataset = res.reports[0].data.rows[0].metrics[0].values;
+  return {
+    visits: dataset[0],
+    views: dataset[1],
+    time: Math.floor(dataset[2]),
+  }
+}
 
 module.exports = {
   /**
@@ -270,5 +316,87 @@ module.exports = {
       clicks: 0,
       ctr: 0,
     };
+  },
+
+  /**
+   *
+   * @param {*} id
+   */
+  async storySummary(id) {
+
+    const story = await Story.findById(id);
+    if (!story) throw new Error(`No story record found for id '${id}'`);
+    const start = moment(story.get('createdAt')).startOf('day');
+    const end = moment().endOf('day');
+
+    const { visits, views, time } = await retrieveStorySummaryStats(start, end);
+
+    // const metrics = [
+    //   { expression: 'ga:sessions' },
+    //   { expression: 'ga:hits' },
+    //   { expression: 'ga:avgTimeOnPage' },
+    //   { expression: 'ga:avgSessionDuration' },
+    //   // { expression: 'ga.source' },
+    //   // { expression: 'ga.socialNetwork' },
+    // ];
+    // const res = await retrieveGAData(start, end, metrics);
+
+    // const times = gadata.reports[0].data.rows[0].metrics[0].values;
+    // const stats = gadata.reports[1].data.rows[0].metrics[0].values;
+
+    // const time = Math.floor(times[0]);
+    // const visits = Math.floor(stats[0]);
+    // const views = Math.floor(stats[1]);
+
+    // // gadata.reports.forEach((report) => {
+    // //   const { columnHeader, data } = report;
+    // //   console.warn('\n---- NEW REPORT ----\n');
+    // //   columnHeader.metricHeader.metricHeaderEntries.forEach(e => console.warn(e));
+    // //   console.warn('--------------------\n')
+    // //   data.rows.forEach(r => r.metrics.forEach((m) => console.warn(m)));
+    // //   console.warn('--------------------\n\n')
+
+    // // });
+
+    const dates = createDateRange(start, end);
+
+    // Initial test data
+    const accquisitionData = {
+      socialReferral: 2 * Math.floor(Math.random() * 1000),
+      nativeAdCampaign: 3 * Math.floor(Math.random() * 1000),
+      bannerAdCampaign: 1 * Math.floor(Math.random() * 1000),
+      organicSearch: 1 * Math.floor(Math.random() * 1000),
+      emailCampaign: 1 * Math.floor(Math.random() * 1000),
+      direct: 2 * Math.floor(Math.random() * 1000),
+    };
+    let { socialReferral } = accquisitionData;
+    const sharesData = {};
+    ['facebook', 'twitter', 'reddit', 'email'].forEach((k) => {
+      const diff = Math.floor(socialReferral * Math.random());
+      socialReferral -= diff;
+      sharesData[k] = diff;
+    });
+    sharesData.other = socialReferral;
+
+    // const views = Object.keys(accquisitionData).reduce((p, c) => {
+    //   const prev = (p === 'socialReferral') ? 0 : p;
+    //   return prev + accquisitionData[c];
+    // });
+
+    const out = {
+      visits, //: Math.floor(views * Math.random()),
+      views,
+      shares: accquisitionData.socialReferral,
+      time, //: Math.floor(120 * Math.random()),
+      accquisitionData,
+      sharesData,
+      interactionsData: dates.map(d => ({
+        date: moment(d).toDate(),
+        visits: Math.floor(Math.random() * 1000),
+        views: Math.floor(Math.random() * 10000),
+        shares: Math.floor(Math.random() * 100),
+      })),
+    };
+    return out;
   },
 };

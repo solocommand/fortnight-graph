@@ -1,6 +1,7 @@
 type Query {
   reportCampaignSummary(input: CampaignHashInput!): CampaignSummary!
   reportCampaignCreativeBreakdown(input: CampaignHashInput!): CampaignCreativeBreakdown!
+  reportStorySummary(input: ModelIdInput!): StorySummary!
 }
 
 type CampaignSummary {
@@ -8,6 +9,40 @@ type CampaignSummary {
   clicks: Int!
   ctr: Float!
   days: [DaySummary!]
+}
+
+type StorySummary {
+  visits: Int!
+  views: Int!
+  shares: Int!
+  time: Int!
+  accquisitionData: StoryAccquisitions!
+  sharesData: StoryShares!
+  interactionsData: [StoryInteractions!]
+}
+
+type StoryAccquisitions {
+  socialReferral: Int!
+  nativeAdCampaign: Int!
+  bannerAdCampaign: Int!
+  organicSearch: Int!
+  emailCampaign: Int!
+  direct: Int!
+}
+
+type StoryShares {
+  facebook: Int!,
+  twitter:  Int!,
+  reddit:   Int!,
+  email:    Int!,
+  other:    Int!,
+}
+
+type StoryInteractions {
+  date: Date!
+  visits: Int!
+  views: Int!
+  shares: Int!
 }
 
 type DaySummary {
