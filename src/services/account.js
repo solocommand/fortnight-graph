@@ -1,5 +1,5 @@
 const objectPath = require('object-path');
-const Account = require('../models/account');
+const Account = require('../connections/nats/accounts');
 const env = require('../env');
 
 module.exports = {
@@ -9,9 +9,16 @@ module.exports = {
   async retrieve() {
     const key = this.getKey();
     if (!key) throw new Error('Unable to retrieve account: no account key was set.');
-    const account = await Account.findOne({ key });
+    const account = await Account.retrieve({ key });
     if (!account) throw new Error(`No account found for key '${key}'`);
     return account;
+  },
+
+  /**
+   * Updates a subset of key values on the account
+   */
+  async update({ id, payload }) {
+    return Account.update({ id, payload });
   },
 
   /**

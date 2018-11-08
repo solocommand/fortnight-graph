@@ -1,15 +1,19 @@
-const Account = require('../../models/account');
 const AccountService = require('../../services/account');
-const env = require('../../env');
+const { GOOGLE_SITE_VERIFICATION, GA_TRACKING_ID } = require('../../env');
 
 module.exports = {
   /**
    *
    */
+  Account: {
+    id: ({ _id }) => _id,
+  },
+  /**
+   *
+   */
   AccountSettings: {
-    cname: () => env.STORY_HOST,
-    googleAnalyticsId: () => env.GA_TRACKING_ID,
-    siteVerificationMeta: () => env.GOOGLE_SITE_VERIFICATION,
+    googleAnalyticsId: () => GA_TRACKING_ID,
+    siteVerificationMeta: () => GOOGLE_SITE_VERIFICATION,
   },
 
   /**
@@ -28,13 +32,7 @@ module.exports = {
      */
     updateAccount: async (root, { input }, { auth }) => {
       auth.checkAdmin();
-      const { id, payload } = input;
-      const account = await Account.strictFindById(id);
-      const { name, settings } = payload;
-      account.name = name;
-      account.set('settings.reservePct', settings.reservePct);
-      account.set('settings.requiredCreatives', settings.requiredCreatives);
-      return account.save();
+      return AccountService.update(input);
     },
   },
 };
